@@ -62,7 +62,10 @@ ArchiveAPI* archive_init(void) {
     
     // 将上下文指针存储在API结构体的末尾（技巧）
     // 我们需要确保API结构体足够大
-    memcpy(api + 1, &ctx, sizeof(ArchiveContext*));
+    //memcpy(api + 1, &ctx, sizeof(ArchiveContext*));
+
+        // 将上下文存储在 API 结构中
+    api->context = ctx;
     
     // 设置函数指针
     api->create = (int (*)(const char*, char**, int))&archive_create;

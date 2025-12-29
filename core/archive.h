@@ -100,6 +100,8 @@ typedef struct {
     // 回调函数
     void (*progress_callback)(int percentage, const char *filename);
     void (*error_callback)(const char *message);
+        // 上下文指针 - 添加这一行
+    void *context;
 } ArchiveAPI;
 
 // 初始化函数
