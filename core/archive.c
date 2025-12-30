@@ -45,8 +45,9 @@ ArchiveAPI* archive_init(void) {
     if (!api) {
         return NULL;
     }
-    
-    // 分配上下文（修改！）
+
+    // calloc函数用于动态分配内存并初始化为零，其核心优势在于解决静态数组大小固定和局部变量生命周期短的问题
+    // 分配上下文
     ArchiveContext *ctx = calloc(1, sizeof(ArchiveContext));
     if (!ctx) {
         free(api);
@@ -54,11 +55,13 @@ ArchiveAPI* archive_init(void) {
     }
     
     // 设置默认值
-    ctx->compression_level = COMPRESSION_DEFAULT;
-    ctx->password = NULL;
-    ctx->progress_callback = NULL;
-    ctx->error_callback = NULL;
-    ctx->log_file = stderr;
+   // ctx->compression_level = COMPRESSION_DEFAULT;
+   // ctx->password = NULL;
+   // ctx->progress_callback = NULL;
+    //ctx->error_callback = NULL;
+  // ctx->log_file = stderr;
+   // ctx->buffer = NULL;
+   // ctx->buffer_size = 0;
     
     // 将上下文指针存储在API结构体的末尾（技巧）
     // 我们需要确保API结构体足够大
@@ -90,8 +93,7 @@ void archive_cleanup(ArchiveAPI *api) {
     if (!api) return;
     
     // 获取上下文
-    ArchiveContext **ctx_ptr = (ArchiveContext**)(api + 1);
-    ArchiveContext *ctx = *ctx_ptr;
+    ArchiveContext *ctx = (ArchiveContext*)(api->context);
     
     if (ctx) {
         if (ctx->password) {
@@ -104,4 +106,30 @@ void archive_cleanup(ArchiveAPI *api) {
     }
     
     free(api);
+}
+
+//归档文件
+static int archive_create(ArchiveContext *ctx, const char *archive, char **files, int count) {
+    // 实现归档创建逻辑
+    if (!archive || !files || count <= 0) {
+        report_error(ctx, "Invalid parameters for create");
+        return ARCHIVE_ERROR_INVALID;
+    }
+    
+    printf("Creating archive: %s\n", archive);
+    printf("Files to archive (%d files):\n", count);
+    
+    FILE *fp = fopen(archive, "wb");
+    if (!fp) {
+        report_error(ctx, "Failed to create archive file");
+        return ARCHIVE_ERROR_OPEN;
+    }
+
+    for (int i = 0; i < count; i++) {
+        printf(" - %s\n", files[i]);
+        // 这里可以添加实际的文件写入逻辑
+    }
+
+    fclose(fp);
+    return 0;
 }
