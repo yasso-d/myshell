@@ -1,4 +1,0 @@
-#ifndef ARCHIVER_TOOL_H
-#define ARCHIVER_TOOL_H
-
-#endif // ARCHIVER_TOOL_H

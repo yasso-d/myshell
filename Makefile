@@ -10,7 +10,7 @@ LDFLAGS = -lz -lcrypto -lm
 LIB_SRCS = archive.c
 LIB_OBJS = $(LIB_SRCS:.c=.o)
 
-TOOL_SRC = archive-tool.c
+TOOL_SRC = archiver-tool.c
 TOOL_OBJ = $(TOOL_SRC:.c=.o)
 
 # 检测操作系统

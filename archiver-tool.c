@@ -1,5 +1,3 @@
-#include "archiver-tool.h"
-
 #include "archive.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,34 +9,35 @@
 
 // 版本信息
 #define VERSION "1.0.0"
-#define AUTHOR  "Archive Tool Team"
+#define AUTHOR  "yasso-d Archive Tool"
 
 // 全局变量
 static int verbose = 0;
-static int quiet = 0;
-static int progress = 1;
+
 static int compression_level = 6;
 static char *password = NULL;
 static ArchiveAPI *api = NULL;
+static ArchiveContext ctx;
+
 
 // 函数声明
-static void print_usage(void);
-static void print_version(void);
-static void print_help(void);
-static int parse_arguments(int argc, char *argv[]);
-static int create_archive(int argc, char *argv[]);
-static int extract_archive(int argc, char *argv[]);
-static int list_archive(int argc, char *argv[]);
-static int add_files(int argc, char *argv[]);
-static int remove_files(int argc, char *argv[]);
+static void print_usage_tool(void);
+static void print_version_tool(void);
+static void print_help_tool(void);
+static int parse_arguments_tool(int argc, char *argv[]);
+static int create_archive_tool(int argc, char *argv[]);
+static int extract_archive_tool(int argc, char *argv[]);
+static int list_archive_tool(int argc, char *argv[]);
+static int add_files_tool(int argc, char *argv[]);
+static int remove_files_tool(int argc, char *argv[]);
 static int verify_archive(int argc, char *argv[]);
-static int update_archive(int argc, char *argv[]);
-static int test_archive(int argc, char *argv[]);
-static void progress_callback(int percentage, const char *filename);
-static void error_callback(const char *message);
-static char** expand_wildcards(const char *pattern, int *count);
-static int is_directory(const char *path);
-static int recursive_add(const char *archive, const char *path);
+static int update_archive_tool(int argc, char *argv[]);
+static int test_archive_tool(int argc, char *argv[]);
+static void progress_callback_tool(int percentage, const char *filename);
+static void error_callback_tool(const char *message);
+static char** expand_wildcards_tool(const char *pattern, int *count);
+static int is_directory_tool(const char *path);
+static int recursive_add_tool(const char *archive, const char *path);
 
 // 命令行选项定义
 static struct option long_options[] = {
@@ -99,28 +98,28 @@ int main(int argc, char *argv[]) {
     char *subcommand = argv[1];
     
     if (strcmp(subcommand, "create") == 0 || strcmp(subcommand, "c") == 0) {
-        ret = create_archive(argc - 2, argv + 2);
+        ret = create_archive_tool(argc - 2, argv + 2);
     } else if (strcmp(subcommand, "extract") == 0 || strcmp(subcommand, "x") == 0) {
-        ret = extract_archive(argc - 2, argv + 2);
+        ret = extract_archive_tool(argc - 2, argv + 2);
     } else if (strcmp(subcommand, "list") == 0 || strcmp(subcommand, "l") == 0) {
-        ret = list_archive(argc - 2, argv + 2);
+        ret = list_archive_tool(argc - 2, argv + 2);
     } else if (strcmp(subcommand, "add") == 0 || strcmp(subcommand, "a") == 0) {
-        ret = add_files(argc - 2, argv + 2);
+        ret = add_files_tool(argc - 2, argv + 2);
     } else if (strcmp(subcommand, "remove") == 0 || strcmp(subcommand, "r") == 0) {
-        ret = remove_files(argc - 2, argv + 2);
+        ret = remove_files_tool(argc - 2, argv + 2);
     } else if (strcmp(subcommand, "verify") == 0 || strcmp(subcommand, "v") == 0) {
-        ret = verify_archive(argc - 2, argv + 2);
+        ret = verify_archive_tool(argc - 2, argv + 2);
     } else if (strcmp(subcommand, "update") == 0 || strcmp(subcommand, "u") == 0) {
-        ret = update_archive(argc - 2, argv + 2);
+        ret = update_archive_tool(argc - 2, argv + 2);
     } else if (strcmp(subcommand, "test") == 0 || strcmp(subcommand, "t") == 0) {
-        ret = test_archive(argc - 2, argv + 2);
+        ret = test_archive_tool(argc - 2, argv + 2);
     } else if (strcmp(subcommand, "help") == 0 || strcmp(subcommand, "h") == 0) {
-        print_help();
+        print_help_tool();
     } else if (strcmp(subcommand, "version") == 0 || strcmp(subcommand, "V") == 0) {
-        print_version();
+        print_version_tool();
     } else {
         fprintf(stderr, "Unknown command: %s\n", subcommand);
-        print_usage();
+        print_usage_tool();
         ret = 1;
     }
     
@@ -184,7 +183,7 @@ static int parse_arguments(int argc, char *argv[]) {
 }
 
 // 创建归档文件
-static int create_archive(int argc, char *argv[]) {
+static int create_archive_tool(int argc, char *argv[]) {
     if (argc < 2) {
         fprintf(stderr, "Usage: archive create [options] <archive> <files...>\n");
         fprintf(stderr, "Options:\n");
@@ -208,7 +207,7 @@ static int create_archive(int argc, char *argv[]) {
     }
     
     int result = api->create(archive_name, files, file_count);
-    if (result != ARCHIVE_OK) {
+    if (result != ARCHIVE_ERROR_OPEN) {
         fprintf(stderr, "Failed to create archive: %s\n", archive_strerror(result));
         return 1;
     }
@@ -221,7 +220,7 @@ static int create_archive(int argc, char *argv[]) {
 }
 
 // 提取归档文件
-static int extract_archive(int argc, char *argv[]) {
+static int extract_archive_tool(int argc, char *argv[]) {
     if (argc < 1) {
         fprintf(stderr, "Usage: archive extract [options] <archive> [dest]\n");
         fprintf(stderr, "Options:\n");
@@ -252,8 +251,7 @@ static int extract_archive(int argc, char *argv[]) {
             return 1;
         }
     }
-    
-    int result = api->extract(archive_name, dest_dir);
+    int result = api->extract(&ctx,archive_name, dest_dir);
     if (result != ARCHIVE_OK) {
         fprintf(stderr, "Failed to extract archive: %s\n", archive_strerror(result));
         return 1;
@@ -267,7 +265,7 @@ static int extract_archive(int argc, char *argv[]) {
 }
 
 // 列出归档内容
-static int list_archive(int argc, char *argv[]) {
+static int list_archive_tool(int argc, char *argv[]) {
     if (argc < 1) {
         fprintf(stderr, "Usage: archive list <archive>\n");
         return 1;
@@ -280,8 +278,7 @@ static int list_archive(int argc, char *argv[]) {
         fprintf(stderr, "Archive not found: %s\n", archive_name);
         return 1;
     }
-    
-    int result = api->list(archive_name);
+    int result = api->list(&ctx, archive_name);
     if (result != ARCHIVE_OK) {
         fprintf(stderr, "Failed to list archive: %s\n", archive_strerror(result));
         return 1;
@@ -291,7 +288,7 @@ static int list_archive(int argc, char *argv[]) {
 }
 
 // 添加文件到归档
-static int add_files(int argc, char *argv[]) {
+static int add_files_tool(int argc, char *argv[]) {
     if (argc < 2) {
         fprintf(stderr, "Usage: archive add <archive> <files...>\n");
         return 1;
@@ -331,7 +328,7 @@ static int add_files(int argc, char *argv[]) {
 }
 
 // 从归档中删除文件
-static int remove_files(int argc, char *argv[]) {
+static int remove_files_tool(int argc, char *argv[]) {
     if (argc < 2) {
         fprintf(stderr, "Usage: archive remove <archive> <files...>\n");
         return 1;
@@ -371,7 +368,7 @@ static int remove_files(int argc, char *argv[]) {
 }
 
 // 验证归档完整性
-static int verify_archive(int argc, char *argv[]) {
+static int verify_archive_tool(int argc, char *argv[]) {
     if (argc < 1) {
         fprintf(stderr, "Usage: archive verify <archive>\n");
         return 1;
@@ -403,7 +400,7 @@ static int verify_archive(int argc, char *argv[]) {
 }
 
 // 更新归档中的文件
-static int update_archive(int argc, char *argv[]) {
+static int update_archive_tool(int argc, char *argv[]) {
     if (argc < 2) {
         fprintf(stderr, "Usage: archive update <archive> <files...>\n");
         return 1;
@@ -443,7 +440,7 @@ static int update_archive(int argc, char *argv[]) {
 }
 
 // 测试归档文件
-static int test_archive(int argc, char *argv[]) {
+static int test_archive_tool(int argc, char *argv[]) {
     if (argc < 1) {
         fprintf(stderr, "Usage: archive test <archive>\n");
         return 1;
@@ -474,33 +471,10 @@ static int test_archive(int argc, char *argv[]) {
     return 0;
 }
 
-// 进度回调函数
-static void progress_callback(int percentage, const char *filename) {
-    if (quiet || !progress) return;
-    
-    static int last_percentage = -1;
-    if (percentage != last_percentage) {
-        if (filename && *filename) {
-            printf("\rProgress: %3d%% - %-30s", percentage, filename);
-        } else {
-            printf("\rProgress: %3d%%", percentage);
-        }
-        fflush(stdout);
-        
-        if (percentage >= 100) {
-            printf("\n");
-        }
-        last_percentage = percentage;
-    }
-}
 
-// 错误回调函数
-static void error_callback(const char *message) {
-    fprintf(stderr, "Error: %s\n", message);
-}
 
 // 打印使用说明
-static void print_usage(void) {
+static void print_usage_tool(void) {
     printf("Archive Tool v%s - A powerful file archiving utility\n", VERSION);
     printf("Usage: archive <command> [options] [arguments]\n\n");
     printf("Commands:\n");
@@ -528,8 +502,8 @@ static void print_usage(void) {
 }
 
 // 打印详细帮助信息
-static void print_help(void) {
-    print_usage();
+static void print_help_tool(void) {
+    print_usage_tool();
     printf("\nDetailed command usage:\n");
     printf("CREATE:\n");
     printf("  archive create [options] <archive> <files...>\n");
@@ -552,7 +526,7 @@ static void print_help(void) {
 }
 
 // 打印版本信息
-static void print_version(void) {
+static void print_version_tool(void) {
     printf("Archive Tool v%s\n", VERSION);
     printf("Copyright (c) %s\n", AUTHOR);
     printf("A powerful file archiving utility with compression and encryption support\n");

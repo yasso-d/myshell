@@ -1,0 +1,56 @@
+# CMakeLists.txt
+cmake_minimum_required(VERSION 3.10)
+project(archiver C)
+
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+
+# 可选依赖
+option(WITH_ZLIB "Build with ZLIB compression support" ON)
+option(WITH_OPENSSL "Build with OpenSSL encryption support" ON)
+
+# 源文件列表
+set(SOURCE_FILES
+    src/archive_api.c
+    src/archive_core.c
+    src/archive_compress.c
+    src/archive_encrypt.c
+    src/archive_utils.c
+    src/archive_format.c
+)
+
+# 头文件目录
+include_directories(include)
+
+# 主库
+add_library(archiver STATIC ${SOURCE_FILES})
+
+# 可执行文件
+add_executable(archiver_cli src/cli/main.c)
+target_link_libraries(archiver_cli archiver)
+
+# 示例程序
+add_executable(example_simple examples/simple.c)
+target_link_libraries(example_simple archiver)
+
+add_executable(example_advanced examples/advanced.c)
+target_link_libraries(example_advanced archiver)
+
+# 测试
+enable_testing()
+add_executable(test_archiver tests/test_archiver.c)
+target_link_libraries(test_archiver archiver)
+add_test(NAME archiver_test COMMAND test_archiver)
+
+# 依赖处理
+if(WITH_ZLIB)
+    find_package(ZLIB REQUIRED)
+    target_link_libraries(archiver ZLIB::ZLIB)
+    target_compile_definitions(archiver PRIVATE WITH_ZLIB)
+endif()
+
+if(WITH_OPENSSL)
+    find_package(OpenSSL REQUIRED)
+    target_link_libraries(archiver OpenSSL::Crypto)
+    target_compile_definitions(archiver PRIVATE WITH_OPENSSL)
+endif()

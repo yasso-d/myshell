@@ -1,5 +1,38 @@
 #include "archive.h"
 
+//初始化archive_init函数
+ArchiveAPI* archive_init(void) {
+    ArchiveAPI *api = malloc(sizeof(ArchiveAPI));
+    if (!api) return NULL;
+    
+    ArchiveContext *ctx = malloc(sizeof(ArchiveContext));
+    if (!ctx) {
+        free(api);
+        return NULL;
+    }
+    
+    // 初始化上下文
+    memset(ctx, 0, sizeof(ArchiveContext));
+    ctx->compression_level = COMPRESSION_DEFAULT;
+    
+    // 设置函数指针
+    api->create = archive_create;
+    api->extract = archive_extract;
+    api->list = archive_list;
+    api->add = archive_add;
+
+    api->remove = archive_remove; // 未实现
+    api->verify = archive_verify;
+    api->update = archive_update; // 未实现
+    api->test = archive_test;   // 未实现
+    api->set_compression = compress_data;
+    api->set_encryption = encrypt_data;
+    api->progress_callback = progress_callback;
+    api->error_callback = error_callback;
+    api->context = ctx; // 设置上下文指针
+    
+    return api;
+}
 
 
 // 打开归档文件（内部使用）
@@ -342,4 +375,160 @@ static int archive_verify(ArchiveContext *ctx, const char *archive) {
         printf("%d file(s) failed verification\n", errors);
         return ARCHIVE_ERROR_CORRUPTED;
     }
+}
+// 进度回调函数
+static void progress_callback(int percentage, const char *filename) {
+    if (quiet || !progress) return;
+    
+    static int last_percentage = -1;
+    if (percentage != last_percentage) {
+        if (filename && *filename) {
+            printf("\rProgress: %3d%% - %-30s", percentage, filename);
+        } else {
+            printf("\rProgress: %3d%%", percentage);
+        }
+        fflush(stdout);
+        
+        if (percentage >= 100) {
+            printf("\n");
+        }
+        last_percentage = percentage;
+    }
+}
+
+// 错误回调函数
+static void error_callback(const char *message) {
+    fprintf(stderr, "Error: %s\n", message);
+}
+
+static int archive_remove(const char *archive, char **files, int count) {
+    // 1. 打开现有归档读取所有内容
+    // 2. 创建临时文件
+    // 3. 写入未删除的文件
+    // 4. 替换原文件
+    
+    char temp_file[256];
+    snprintf(temp_file, sizeof(temp_file), "%s.tmp", archive);
+    
+    // 读取现有归档
+    ArchiveFile *af = open_archive_file(archive, "rb");
+    if (!af) {
+        return ARCHIVE_ERROR_OPEN;
+    }
+    
+    // 创建临时归档
+    ArchiveFile *temp_af = open_archive_file(temp_file, "wb");
+    if (!temp_af) {
+        close_archive_file(af);
+        return ARCHIVE_ERROR_OPEN;
+    }
+    
+    // 复制未删除的文件
+    for (uint32_t i = 0; i < af->header.file_count; i++) {
+        int to_delete = 0;
+        for (int j = 0; j < count; j++) {
+            if (strcmp(af->entries[i].filename, files[j]) == 0) {
+                to_delete = 1;
+                break;
+            }
+        }
+        
+        if (!to_delete) {
+            fseek(af->fp, af->entries[i].offset, SEEK_SET);
+            uint8_t *data = malloc(af->entries[i].stored_size);
+            fread(data, 1, af->entries[i].stored_size, af->fp);
+            
+            // 写入到临时文件
+            fwrite(&af->entries[i], sizeof(FileEntry), 1, temp_af->fp);
+            fwrite(data, 1, af->entries[i].stored_size, temp_af->fp);
+            
+            free(data);
+        }
+    }
+    
+    // 更新头信息
+    temp_af->is_modified = 1;
+    close_archive_file(temp_af);
+    close_archive_file(af);
+    
+    // 替换文件
+    remove(archive);
+    rename(temp_file, archive);
+    
+    return ARCHIVE_OK;
+}
+static int archive_update(const char *archive, char **files, int count) {
+    // 1. 打开现有归档读取所有内容
+    // 2. 创建临时文件
+    // 3. 写入原有文件（更新指定文件）
+    // 4. 替换原文件
+    
+    char temp_file[256];
+    snprintf(temp_file, sizeof(temp_file), "%s.tmp", archive);
+    
+    // 读取现有归档
+    ArchiveFile *af = open_archive_file(archive, "rb");
+    if (!af) {
+        return ARCHIVE_ERROR_OPEN;
+    }
+    
+    // 创建临时归档
+    ArchiveFile *temp_af = open_archive_file(temp_file, "wb");
+    if (!temp_af) {
+        close_archive_file(af);
+        return ARCHIVE_ERROR_OPEN;
+    }
+    
+    // 复制原有文件，更新指定文件
+    for (uint32_t i = 0; i < af->header.file_count; i++) {
+        int to_update = 0;
+        for (int j = 0; j < count; j++) {
+            if (strcmp(af->entries[i].filename, files[j]) == 0) {
+                to_update = 1;
+                break;
+            }
+        }
+        
+        if (to_update) {
+            // 写入更新的文件
+            write_file_to_archive(temp_af->fp, af->entries[i].filename, COMPRESSION_DEFAULT, NULL);
+        } else {
+            fseek(af->fp, af->entries[i].offset, SEEK_SET);
+            uint8_t *data = malloc(af->entries[i].stored_size);
+            fread(data, 1, af->entries[i].stored_size, af->fp);
+            
+            // 写入到临时文件
+            fwrite(&af->entries[i], sizeof(FileEntry), 1, temp_af->fp);
+            fwrite(data, 1, af->entries[i].stored_size, temp_af->fp);
+            
+            free(data);
+        }
+    }
+    
+    // 更新头信息
+    temp_af->is_modified = 1;
+    close_archive_file(temp_af);
+    close_archive_file(af);
+    
+    // 替换文件
+    remove(archive);
+    rename(temp_file, archive);
+    
+    return ARCHIVE_OK;
+}
+static int archive_test(const char *archive) {
+    // 简单测试归档能否打开和读取头信息
+    ArchiveFile *af = open_archive_file(archive, "rb");
+    if (!af) {
+        return ARCHIVE_ERROR_OPEN;
+    }
+    
+    // 仅验证头信息
+    if (af->header.magic != 0x48435241) { // "ARCH"
+        close_archive_file(af);
+        return ARCHIVE_ERROR_INVALID;
+    }
+    
+    close_archive_file(af);
+    return ARCHIVE_OK;
 }

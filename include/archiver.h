@@ -28,6 +28,8 @@
 #define FLAG_SYMLINK       0x08  // 符号链接
 #define FLAG_MODIFIED      0x10  // 文件已修改
 
+static int quiet = 0;
+static int progress = 1;
 
 // 错误代码定义
 typedef enum {
@@ -50,10 +52,6 @@ typedef enum {
     COMPRESSION_DEFAULT = 6,
     COMPRESSION_MAX = 9
 } CompressionLevel;
-
-// 进度回调函数类型
-typedef void (*ProgressCallback)(int percentage, const char *filename);
-typedef void (*ErrorCallback)(const char *message);
 
 
 // 归档格式设计
@@ -112,8 +110,8 @@ typedef struct {
 typedef struct {
     // 归档操作
     int (*create)(const char *archive, char **files, int count);
-    int (*extract)(const char *archive, const char *dest);
-    int (*list)(const char *archive);
+    int (*extract)(ArchiveContext *ctx, const char *archive, const char *dest);
+    int (*list)(ArchiveContext *ctx,const char *archive);
     int (*add)(const char *archive, char **files, int count);
     int (*remove)(const char *archive, char **files, int count);
     
@@ -140,4 +138,48 @@ void archive_cleanup(ArchiveAPI *api);
 // 工具函数
 const char* archive_strerror(int error_code);
 int archive_get_file_count(const char *archive);
+
+
+// 进度回调函数类型
+typedef void (*ProgressCallback)(int percentage, const char *filename);
+typedef void (*ErrorCallback)(const char *message);
+
+// 打开归档文件（内部使用）
+static ArchiveFile* open_archive_file(const char *filename, const char *mode);
+// 关闭归档文件
+static void close_archive_file(ArchiveFile *af);
+// 实际的create函数实现
+static int archive_create(ArchiveContext *ctx, const char *archive, char **files, int count);
+// 实际的extract函数实现
+static int archive_extract(ArchiveContext *ctx, const char *archive, const char *dest);
+// 实际的list函数实现
+static int archive_list(ArchiveContext *ctx, const char *archive);
+// 添加文件到现有归档
+static int archive_add(ArchiveContext *ctx, const char *archive, char **files, int count);
+// 验证归档完整性
+static int archive_verify(ArchiveContext *ctx, const char *archive);
+static int archive_remove(const char *archive, char **files, int count);
+static int archive_update(const char *archive, char **files, int count);
+static int archive_test(const char *archive);
+// 压缩函数
+static int compress_data(const uint8_t *input, size_t input_size,
+                         uint8_t **output, size_t *output_size,
+                         int level);
+// 解压函数
+static int decompress_data(const uint8_t *input, size_t input_size,
+                           uint8_t **output, size_t *output_size);
+// 加密函数
+static int encrypt_data(const uint8_t *input, size_t input_size,
+                        uint8_t **output, size_t *output_size,
+                        const char *password);
+// 解密函数
+static int decrypt_data(const uint8_t *input, size_t input_size,
+                        uint8_t **output, size_t *output_size,
+                        const char *password);
+
+// 进度回调函数
+static void progress_callback(int percentage, const char *filename);
+// 错误回调函数
+static void error_callback(const char *message);
+
 #endif // ARCHIVER_H
