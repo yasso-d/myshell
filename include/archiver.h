@@ -103,16 +103,16 @@ typedef struct {
 // 核心接口
 typedef struct {
     // 归档操作
-    int (*create)(const char *archive, char **files, int count);
-    int (*extract)(const char *archive, const char *dest);
-    int (*list)(const char *archive);
-    int (*add)(const char *archive, char **files, int count);
-    int (*remove)(const char *archive, char **files, int count);
+    int (*create)(ArchiveContext *ctx,const char *archive, char **files, int count);
+    int (*extract)(ArchiveContext *ctx, const char *archive, const char *dest);
+    int (*list)(ArchiveContext *ctx, const char *archive);
+    int (*add)(ArchiveContext *ctx, const char *archive, char **files, int count);
+    int (*remove)(ArchiveContext *ctx, const char *archive, char **files, int count);
     
     // 高级功能
-    int (*verify)(const char *archive);
-    int (*update)(const char *archive, char **files, int count);
-    int (*test)(const char *archive);
+    int (*verify)(ArchiveContext *ctx, const char *archive);
+    int (*update)(ArchiveContext *ctx, const char *archive, char **files, int count);
+    int (*test)(ArchiveContext *ctx, const char *archive);
     
     // 压缩/加密
     void (*set_compression)(int level);
@@ -145,6 +145,8 @@ typedef struct {
 ArchiveAPI* archive_init(void);
 int archive_cleanup(ArchiveAPI *api);
 
+ArchiveContext* archive_context_create(void);
+int archive_context_destroy(ArchiveContext *ctx);
 
 // 工具函数
 const char* archive_strerror(int error_code);
@@ -203,4 +205,5 @@ int write_file_to_archive(FILE *archive_fp, const char *filename,
 
 int read_file_from_archive(FILE *archive_fp, const FileEntry *entry,
                             const char *dest_path, const char *password);   
+int archive_append_files(ArchiveContext *ctx, const char **files, int file_count) ;
 #endif // ARCHIVER_H

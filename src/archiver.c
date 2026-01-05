@@ -156,6 +156,12 @@ void report_error(ArchiveContext *ctx, const char *message) {
 
 // 实际的create函数实现
   int archive_create(ArchiveContext *ctx, const char *archive, char **files, int count) {
+        // 检查参数
+    if (!ctx) {
+        // 如果没有上下文，无法报告错误，直接返回错误码
+        return ARCHIVE_ERROR_INVALID;
+    }
+    
     if (!archive || !files || count <= 0) {
         report_error(ctx, "Invalid parameters for create");
         return ARCHIVE_ERROR_INVALID;
@@ -175,9 +181,9 @@ void report_error(ArchiveContext *ctx, const char *message) {
         report_error(ctx, "Failed to create archive file");
         return ARCHIVE_ERROR_OPEN;
     }
-    
+
     ctx->current_archive = af;
-    
+
     // 写入每个文件
     int success_count = 0;
     for (int i = 0; i < count; i++) {
@@ -809,4 +815,62 @@ int read_file_from_archive(FILE *archive_fp, const FileEntry *entry,
     fseek(archive_fp, current_pos, SEEK_SET);
     
     return 1;
+}
+ArchiveContext* archive_context_create(void){
+    ArchiveContext *ctx = malloc(sizeof(ArchiveContext));
+    if (!ctx) return NULL;
+    
+    memset(ctx, 0, sizeof(ArchiveContext));
+    ctx->compression_level = COMPRESSION_DEFAULT;
+    ctx->password = NULL;
+    ctx->log_file = NULL;
+    ctx->current_archive = NULL;
+    ctx->write_buffer = NULL;
+    ctx->recursive = 0;
+    ctx->exclude_patterns = NULL;
+    ctx->exclude_count = 0;
+    ctx->api = NULL;
+    
+    return ctx;
+}
+int archive_context_destroy(ArchiveContext *ctx){
+    if (!ctx) return -1;
+    
+    if (ctx->log_file) {
+        fclose(ctx->log_file);
+    }
+    
+    if (ctx->write_buffer) {
+        free(ctx->write_buffer);
+    }
+    
+    if (ctx->exclude_patterns) {
+        for (int i = 0; i < ctx->exclude_count; i++) {
+            free(ctx->exclude_patterns[i]);
+        }
+        free(ctx->exclude_patterns);
+    }
+    
+    free(ctx);
+    return 0;
+}
+ int archive_append_files(ArchiveContext *ctx, const char **files, int file_count) {
+    if (!ctx || !ctx->current_archive) {
+        report_error(ctx, "No open archive to append files to");
+        return ARCHIVE_ERROR_INVALID;
+    }
+    
+    for (int i = 0; i < file_count; i++) {
+        report_progress(ctx, (i * 100) / file_count, files[i]);
+        
+        if (!write_file_to_archive(ctx->current_archive->fp, files[i], 
+                                   ctx->compression_level, ctx->password)) {
+            fprintf(stderr, "Failed to append file: %s\n", files[i]);
+        } else {
+            ctx->current_archive->header.file_count++;
+        }
+    }
+    
+    ctx->current_archive->is_modified = 1;
+    return ARCHIVE_OK;
 }
