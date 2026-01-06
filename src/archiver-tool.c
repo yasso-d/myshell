@@ -15,11 +15,11 @@
 
 // 全局变量
 static int verbose = 0;
-
 static int compression_level = 6;
 static char *password = NULL;
-ArchiveAPI *API = NULL;
 static ArchiveContext ctx;
+
+ArchiveAPI *API = NULL;
 
 
 
@@ -38,15 +38,8 @@ static int verify_archive_tool(int argc, char *argv[]);
 static int update_archive_tool(int argc, char *argv[]);
 static int test_archive_tool(int argc, char *argv[]);
 
-//void progress_callback(int percentage, const char *filename);
-//void error_callback(const char *message);
-//int archive_cleanup(ArchiveAPI *api);
 
 void close_archive_file(ArchiveFile *af);
-
-//static char** expand_wildcards_tool(const char *pattern, int *count);
-//static int is_directory_tool(const char *path);
-//static int recursive_add_tool(const char *archive, const char *path);
 
 const char* archive_strerror(int error_code) ;
 // 自定义 strdup 实现
