@@ -17,6 +17,14 @@ ArchiveAPI* archive_init(void) {
     // 初始化上下文
     memset(ctx, 0, sizeof(ArchiveContext));
     ctx->compression_level = COMPRESSION_DEFAULT;
+    ctx->password = NULL;
+    ctx->recursive = 0;
+    ctx->exclude_patterns = NULL;
+    ctx->exclude_count = 0;
+    ctx->log_file = NULL;
+    ctx->current_archive = NULL;
+    ctx->write_buffer = NULL;
+    ctx->api = api;
     
     // 设置函数指针
     api->create = archive_create;
@@ -24,10 +32,10 @@ ArchiveAPI* archive_init(void) {
     api->list = archive_list;
     api->add = archive_add;
 
-    api->remove = archive_remove; // 未实现
+    api->remove = archive_remove; 
     api->verify = archive_verify;
-    api->update = archive_update; // 未实现
-    api->test = archive_test;   // 未实现
+    api->update = archive_update; 
+    api->test = archive_test;  
     api->set_compression = compress_data;
     api->set_encryption = encrypt_data;
 
